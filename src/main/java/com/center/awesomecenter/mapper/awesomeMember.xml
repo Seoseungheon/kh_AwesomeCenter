@@ -1,0 +1,574 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<!-- ====  mapper 기본설정 ==== -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 루트 엘리먼트 & 네임스페이스 설정(프로젝트 전체 내에서 유일해야 한다.) -->
+<mapper namespace="awesomeMember">
+	
+	<!-- 장바구니 갯수 -->
+	<select id="getCartListCnt" parameterType="String" resultType="String">
+		select count(*)
+		from tbl_cart
+		where fk_userno = #{userno} and cart_status = 0
+	</select>
+	
+	<!-- 수강 내역 갯수 -->
+	<select id="getOrderListCnt" parameterType="String" resultType="String">
+		select count(*)
+		from awesome_orderlist
+		where userno_fk = #{userno}
+	</select>
+	
+	<!-- 대기자 조회 갯수 -->
+	<select id="getWaitingListCnt" parameterType="String" resultType="String">
+		select count(*)
+		from waitinglist
+		where userno_fk = #{userno}
+	</select>
+	
+	<!-- 수강 후기 갯수 -->
+	<select id="getReviewListCnt" parameterType="String" resultType="String">
+		select count(*)
+		from awesome_review
+		where fk_userno = #{userno} and wstatus = 1
+	</select>
+	
+	<!-- 좋아요 갯수 -->
+	<select id="getHeartListCnt" parameterType="String" resultType="String">
+		select count(*)
+		from heartlecture
+		where fk_userno = #{userno}
+	</select>
+	
+	<!-- 관심분야 카테고리 번호 채번 -->
+	<select id="getCategoryNo" parameterType="String" resultType="String">
+		select cate_no_fk
+		from wishcategory
+		where userno_fk = #{userno}
+	</select>
+	
+	<!-- 채번한 번호로 관심분야 조회 -->
+	<select id="getWishCategoryList" parameterType="HashMap" resultType="com.center.member.model.CategoryVO">
+		select cate_no, cate_name, cate_code
+		from lec_category
+		where cate_no in 
+		<foreach collection="noArr" index="i" open="(" separator="," close=")">
+			${noArr[i]}
+		</foreach>	
+	</select>
+	
+	<!-- 카테고리 목록 가져오기 -->
+	<select id="getCategoryList" resultType="com.center.member.model.CategoryVO">
+		select cate_no, cate_name, cate_code
+		from lec_category
+	</select>
+	
+	<!-- 마케팅 수신동의 변경 -->
+	<update id="editMarketing" parameterType="HashMap">
+		update awesome_member set marketing_email = #{emailCheck}, marketing_sms = #{smsCheck} where userno = #{userno}
+	</update>
+	
+	<!-- 관심 분야 변경 -->
+	<delete id="deleteWishCategory" parameterType="String">
+		delete from wishcategory
+		where userno_fk = #{userno}
+	</delete>
+	<insert id="insertWishCategory" parameterType="HashMap">
+		insert into wishcategory(no, userno_fk, cate_no_fk)
+		values(seq_wishcategory.nextval, #{userno}, #{cateno})
+	</insert>
+	
+	<!-- 수강 내역 조회 -->
+	<select id="getOrderList" parameterType="String" resultType="com.center.member.model.OrderListVO">
+		select no, userno_fk, class_seq_fk, status, price, to_char(payday, 'yyyy-mm-dd') as payday
+		from awesome_orderlist
+		where userno_fk = #{userno}
+		order by payday
+	</select>
+
+	<!-- 수강 내역 강좌 정보 -->
+	<select id="getClassInfo" parameterType="HashMap" resultType="com.center.member.model.ClassVO">
+		select class_seq, fk_cate_no, fk_teacher_seq, class_title, class_semester, 
+				to_char(class_startdate,'yyyy-mm-dd') as class_startdate, to_char(class_enddate, 'yyyy-mm-dd') as class_enddate, 
+				class_fee, class_subfee, class_day, class_place, class_personnel, 
+				class_time, class_photo, class_content, class_status, class_heart
+		from tbl_class
+		<if test="noArr != null">
+		where class_seq in 
+		<foreach collection="noArr" index="i" open="(" separator="," close=")">
+		${noArr[i]}
+		</foreach>
+		order by
+		<foreach collection="noArr" index="i" open="(case class_seq when" separator="when" close="end)">
+			 ${noArr[i]} then ${i}
+		</foreach>
+		</if>
+	</select>
+	
+	<select id="getOrderListSearch" parameterType="HashMap" resultType="com.center.member.model.OrderListVO">
+		select userno_fk, class_seq_fk, status, price, to_char(payday, 'yyyy-mm-dd') as payday
+		from 
+		(       
+		select o.userno_fk, o.class_seq_fk, o.status, o.price, o.payday, c.class_semester, c.class_startdate
+		from awesome_orderlist o, tbl_class c
+		where o.class_seq_fk = c.class_seq
+		)V
+		<if test="(year != null and year != '') and (term == null or term == '')">
+		where to_char(class_startdate, 'yyyy') = #{year} and userno_fk = #{userno}
+		</if>
+		<if test="(year == null or year == '') and (term != null and term != '')">
+		where class_semester in 
+		<if test="term == 3">('3월', '4월', '5월')</if>
+		<if test="term == 6">('6월', '7월', '8월')</if>
+		<if test="term == 9">('9월', '10월', '11월')</if>
+		<if test="term == 12">('12월', '1월', '2월')</if>
+		and userno_fk = #{userno}
+		</if>
+		<if test="(year !=null and year != '') and (term != null and term != '') ">
+		where to_char(class_startdate, 'yyyy') = #{year} and 
+		class_semester in 
+		<if test="term == 3">('3월', '4월', '5월')</if>
+		<if test="term == 6">('6월', '7월', '8월')</if>
+		<if test="term == 9">('9월', '10월', '11월')</if>
+		<if test="term == 12">('12월', '1월', '2월')</if>
+		and userno_fk = #{userno}
+		</if>
+		order by payday
+	</select>
+	
+	<select id="getOrderListSearchEnd" parameterType="HashMap" resultType="com.center.member.model.OrderListVO">
+		select userno_fk, class_seq_fk, status, price, to_char(payday, 'yyyy-mm-dd') as payday
+		from 
+		(       
+		select o.userno_fk, o.class_seq_fk, o.status, o.price, o.payday, c.class_semester, c.class_startdate
+		from awesome_orderlist o, tbl_class c
+		where o.class_seq_fk = c.class_seq
+		)V
+		<if test="(year != null and year != '') and (term == null or term == '')">
+		where to_char(class_startdate, 'yyyy') = #{year} and userno_fk = #{userno} and status in (0,3)
+		</if>
+		<if test="(year == null or year == '') and (term != null and term != '')">
+		where class_semester in 
+		<if test="term == 3">('3월', '4월', '5월')</if>
+		<if test="term == 6">('6월', '7월', '8월')</if>
+		<if test="term == 9">('9월', '10월', '11월')</if>
+		<if test="term == 12">('12월', '1월', '2월')</if>
+		and userno_fk = #{userno} and status = 4
+		</if>
+		<if test="(year !=null and year != '') and (term != null and term != '') ">
+		where to_char(class_startdate, 'yyyy') = #{year} and 
+		class_semester in 
+		<if test="term == 3">('3월', '4월', '5월')</if>
+		<if test="term == 6">('6월', '7월', '8월')</if>
+		<if test="term == 9">('9월', '10월', '11월')</if>
+		<if test="term == 12">('12월', '1월', '2월')</if>
+		and userno_fk = #{userno} and status in (0,3)
+		</if>
+		order by payday
+	</select>
+	
+	<!-- 결제 정보 -->
+	<resultMap type="HashMap" id="payMap">
+		<result property="no"				column="no"					javaType="String" />
+		<result property="payday"			column="payday"				javaType="String" />
+		<result property="status"			column="status"				javaType="String" />
+		<result property="price"			column="price"				javaType="String" />
+		<result property="class_seq"		column="class_seq"			javaType="String" />
+		<result property="class_title"		column="class_title"		javaType="String" />
+		<result property="fk_teacher_seq"	column="fk_teacher_seq"		javaType="String" />
+		<result property="class_semester"	column="class_semester"		javaType="String" />
+		<result property="class_place"		column="class_place"		javaType="String" />
+		<result property="class_fee"		column="class_fee"			javaType="String" />
+		<result property="class_day"		column="class_day"			javaType="String" />
+		<result property="class_startdate"	column="class_startdate"	javaType="String" />
+		<result property="class_enddate"	column="class_enddate"		javaType="String" />
+		<result property="class_photo"		column="class_photo"		javaType="String" />
+		<result property="userno_fk"		column="userno_fk"			javaType="String" />
+	</resultMap>
+	
+	<select id="getPayInfo" parameterType="String" resultMap="payMap">
+		select no, to_char(payday,'yyyy-mm-dd') as payday, status, price, class_seq, class_title, fk_teacher_seq, trim(class_semester) as class_semester,
+				class_place, class_fee, class_day, to_char(class_startdate, 'yyyy-mm-dd') as class_startdate,
+				to_char(class_enddate, 'yyyy-mm-dd') as class_enddate, class_photo, userno_fk
+		from awesome_orderlist o, tbl_class c
+		where o.class_seq_fk = c.class_seq and o.no = #{no}
+	</select>
+	
+	<!-- 결제 일자 -->
+	<select id="getPayday" parameterType="String" resultType="String">
+		select to_char(class_startdate, 'yyyymmdd') as startdate
+		from awesome_orderlist o, tbl_class c
+		where o.class_seq_fk = c.class_seq and o.no = #{no}
+	</select>
+	
+	<!-- 강사 정보 -->
+	<select id="getTeacherInfo" parameterType="String" resultType="com.center.member.model.TeacherVO">
+		select teacher_seq, fk_cate_no, teacher_name, teacher_gender
+		from tbl_teacher
+		where teacher_seq = #{teacherno}
+	</select>
+	
+	<!-- 대기자 조회 -->
+	<select id="getWaitingList" parameterType="String" resultType="com.center.member.model.WaitingVO">
+		select rnum, seq, userno_fk, classno_fk, reciptday, status
+		from
+		(
+		select row_number() over(partition by classno_fk, status order by reciptday) as rnum, seq, userno_fk, classno_fk, to_char(reciptday, 'yyyy-mm-dd') as reciptday, status
+		from waitinglist
+        order by row_number() over(partition by classno_fk, status order by reciptday)
+		)V
+		where userno_fk = #{userno}
+        order by status
+	</select>
+	
+	<!-- 강사 리스트 -->
+	<select id="getTeacherList" parameterType="HashMap" resultType="com.center.member.model.TeacherVO">
+		select teacher_seq, fk_cate_no, teacher_name, teacher_gender
+		from tbl_teacher
+		where teacher_seq in 
+		<foreach collection="teacherArr" index="i" open="(" separator="," close=")">
+		${teacherArr[i]}
+		</foreach>
+		order by
+		<foreach collection="teacherArr" index="i" open="(case teacher_seq when" separator="when" close="end)">
+			 ${teacherArr[i]} then ${i}
+		</foreach>
+	</select>
+	
+	<!-- 대기 목록 삭제 -->
+	<delete id="cancelWait" parameterType="HashMap">
+		delete from waitinglist where seq in 
+		<foreach collection="seq" index="i" open="(" separator="," close=")">
+			${seq[i]}
+		</foreach>
+	</delete>
+	
+	<!-- 강좌 번호 채번 -->
+	<select id="getClassno" parameterType="String" resultType="String">
+		select class_seq_fk
+		from awesome_orderlist
+		where no = #{no}
+	</select>
+	
+	
+	<!-- 결제 취소 -->
+	<delete id="payCancelEnd" parameterType="HashMap">
+		 delete from tbl_student
+		 where fk_userno = #{userno} and fk_class_seq = #{classno}
+	</delete>
+	
+	<update id="editOrderlist" parameterType="HashMap">
+		update awesome_orderlist set status = 1, deleteday = sysdate
+		where no = #{no}
+	</update>
+	
+	<!-- 취소한 강좌에 대한 대기 번호 1번인 유저 번호 -->
+	<select id="getWaitingNo" parameterType="HashMap" resultType="String">	
+		select userno_fk
+		from
+		(
+		select row_number() over(partition by classno_fk order by reciptday) as rnum, seq, userno_fk, classno_fk, to_char(reciptday, 'yyyy-mm-dd') as reciptday
+		from waitinglist
+		where status = 1
+		)V
+		where classno_fk = #{classno} and rnum = 1
+	</select> 
+	
+	<!-- 대기번호 1번인 유저의 전화번호 -->
+	<select id="getHp" parameterType="String" resultType="String">
+		select hp1||''||hp2||''||hp3
+		from awesome_member
+		where userno = #{waitno}
+	</select>
+	
+	<!-- 문자 전송 후 대기자 상태 변경 -->
+	<update id="updateWait" parameterType="HashMap">
+		update waitinglist set status = 0
+		where userno_fk = #{waitno} and classno_fk = #{classno}
+	</update>
+	
+	<!-- 수강이 끝난 수강내역 -->
+	<select id="getOrderListEnd" parameterType="String" resultType="com.center.member.model.OrderListVO">
+		select no, userno_fk, class_seq_fk, status, price, to_char(payday, 'yyyy-mm-dd') as payday, review
+		from awesome_orderlist
+		where userno_fk = #{userno} and status in(0,3)
+		order by payday
+	</select>
+		
+	<!-- 수강 후기 -->
+	<select id="getReview" parameterType="HashMap" resultType="com.center.member.model.ReviewVO">
+		select reviewno, fk_userno, fk_class_seq, subject, content, to_char(wdate, 'yyyy-mm-dd') as wdate
+		from awesome_review
+		where fk_userno = #{userno} and fk_class_seq = #{classno} and wstatus = 1
+	</select>
+	
+	<resultMap type="HashMap" id="getageJSON">
+		<result property="age" 			   column="age"			    javaType="String" />
+		<result property="cnt" 			   column="cnt" 		    javaType="String" />
+		<result property="percentage" 	   column="percentage" 	    javaType="String" />
+	</resultMap>
+	
+	<!-- 강좌별 연령대 차트 -->
+	<select id="ageJSON" resultMap="getageJSON" parameterType="String"> 
+	select age, count(*) as cnt, round( count(*)/(select count(*) from tbl_student where fk_class_seq=#{class_seq})*100, 2) as percentage
+	from
+	(
+	select case when func_age(m.rrn1) <![CDATA[>=]]> 10 and func_age(m.rrn1) <![CDATA[<]]> 20 then '10대'
+            when func_age(m.rrn1) <![CDATA[>=]]> 20 and func_age(m.rrn1) <![CDATA[<]]> 30 then '20대'
+            when func_age(m.rrn1) <![CDATA[>=]]> 30 and func_age(m.rrn1) <![CDATA[<]]> 40 then '30대'
+            when func_age(m.rrn1) <![CDATA[>=]]> 40 and func_age(m.rrn1) <![CDATA[<]]> 50 then '40대'
+            when func_age(m.rrn1) <![CDATA[>=]]> 50 and func_age(m.rrn1) <![CDATA[<]]> 60 then '50대'
+            when func_age(m.rrn1) <![CDATA[>=]]> 60 and func_age(m.rrn1) <![CDATA[<]]> 70 then '60대'
+            when func_age(m.rrn1) <![CDATA[>=]]> 70 and func_age(m.rrn1) <![CDATA[<]]> 80 then '70대'
+            when func_age(m.rrn1) <![CDATA[>=]]> 80 and func_age(m.rrn1) <![CDATA[<]]> 90 then '80대'
+            when func_age(m.rrn1) <![CDATA[>=]]> 90 and func_age(m.rrn1) <![CDATA[<]]> 100 then '90대'
+            else '0대' end as age
+	from tbl_student s, awesome_member m
+	where s.fk_userno = m.userno and s.fk_class_seq = #{class_seq}
+	)V
+	group by age
+	order by age
+	</select>
+
+
+
+
+
+
+
+	<!-- 스케쥴러 강좌 시작날짜, 끝날짜를 알아오기 위한 강좌 목록 -->
+	<select id="getAllOrderList" resultType="com.center.member.model.OrderListVO">
+		select class_seq_fk
+		from awesome_orderlist
+		where not status = 1
+		order by class_seq_fk 
+	</select>
+
+	<!-- 강좌별 시작날짜, 끝날짜 조회 -->
+	<select id="getAllClassList" parameterType="HashMap" resultType="com.center.member.model.ClassVO">
+		select class_seq, to_char(class_startdate, 'yyyy-mm-dd') as class_startdate, to_char(class_enddate, 'yyyy-mm-dd') as class_enddate
+		from tbl_class
+		where class_seq in 
+		<foreach collection="noArr" index="i" open="(" separator="," close=")">
+		${noArr[i]}
+		</foreach>
+		order by class_seq
+	</select>
+	
+	<!-- 주문내역 상태 업데이트 -->
+	<update id="updateOrderListStatus" parameterType="HashMap">
+		update awesome_orderlist set status = #{status} where class_seq_fk = #{classno} and not status = 1
+	</update>
+	
+	<!-- 강좌 개강 시 대기목록 삭제 -->
+	<delete id="deleteWaitingList" parameterType="String">
+		delete from waitinglist where classno_fk = #{classno}
+	</delete>
+
+
+
+
+	<!-- 효민 -->
+	<select id="idCheck" parameterType="String" resultType="Integer">
+		select count(*) 
+		from   awesome_member 
+		where  userid= #{userid}
+	</select>
+	
+	<insert id="insertUser" parameterType="HashMap">
+		insert into AWESOME_MEMBER(USERNO, USERID, USERPW, USERNAME, RRN1, RRN2, POST, ADDR1, ADDR2, 
+		                           HP1, HP2, HP3, EMAIL, MARKETING_SMS, MARKETING_EMAIL, GENDER)
+		values      (SEQ_AWESOME_MEMBER.nextval, #{userid}, #{userpwd}, #{userName}, #{ResidentNum1}, 
+		            #{ResidentNum2}, #{post_code}, #{post_address1}, #{post_address2}, #{celphone_no1}, 
+		            #{celphone_no2}, #{celphone_no3}, #{user_email}, #{marketingEmail}, #{marketingSMS}, #{gender})
+	</insert>
+	
+	<select id="isExistUser" parameterType="HashMap" resultType="com.center.member.model.MemberVO">
+		select userno, userid, userpw, username, rrn1, rrn2, post, addr1, addr2, hp1, hp2, hp3, email, marketing_sms, marketing_email, 
+				to_char(registerday, 'yyyy-mm-dd') as registerday, to_char(editday, 'yyyy-mm-dd') as editday,
+				to_char(lastloginday, 'yyyy-mm-dd') as lastloginday, status
+		from   awesome_member
+		where  userid= #{userid} and userpw = #{userpwd} and status = 1
+	</select>
+	
+	<update id="setLoginday" parameterType="HashMap">
+		update awesome_member set lastloginday = sysdate where userno = #{userno}
+	</update>
+	
+	<update id="setUserPwd" parameterType="HashMap">
+		update awesome_member set userpw = #{newPasswd} where userno = #{userno}
+	</update>
+	
+	<update id="updateEditDay" parameterType="HashMap">
+		update awesome_member set editday = sysdate where userno = #{userno}
+	</update>
+	
+	<update id="updateUser" parameterType="HashMap">
+		update awesome_member set hp1 = #{celphone_no1}, hp2 = #{celphone_no2}, hp3 = #{celphone_no3},
+								  email = #{user_email}, post = #{post_code}, addr1 = #{post_address1}, addr2 = #{post_address2}
+		where userno = #{userno}
+	</update>
+	
+	<update id="delUser" parameterType="HashMap">
+		update awesome_member set status = 0, withdrawalday = sysdate
+		where  userno = #{userno}
+	</update>
+	
+	<select id="findidByEmail" parameterType="HashMap" resultType="String">
+		select userid
+		from   awesome_member 
+		where  status=1 and username = #{emailUsername} and email = #{email}
+	</select>
+	
+	<select id="findidByHp" parameterType="HashMap" resultType="String">
+		select userid
+		from   awesome_member 
+		where  status=1 and username = #{hpUsername} and hp1 = #{hp1} and hp2 = #{hp2} and hp3 = #{hp3} and rownum = 1
+	</select>
+	
+	<update id="updatePW" parameterType="HashMap">
+		update awesome_member set userpw = #{userpw} where userid = #{userid}
+	</update>
+	
+	<update id="updateEditDayId" parameterType="HashMap">
+		update awesome_member set editday = sysdate where userid = #{userid}
+	</update>
+	
+	<select id="getUserById" parameterType="HashMap" resultType="com.center.member.model.MemberVO">
+		select userno, userid, userpw, username, rrn1, rrn2, post, addr1, addr2, hp1, hp2, hp3, email, marketing_sms, marketing_email, 
+				to_char(registerday, 'yyyy-mm-dd') as registerday, to_char(editday, 'yyyy-mm-dd') as editday,
+				to_char(lastloginday, 'yyyy-mm-dd') as lastloginday, status
+		from   awesome_member
+		where  userid= #{userid} and status = 1
+	</select>
+	
+	<select id="getDelUserList" resultType="com.center.member.model.MemberVO">
+		select userno, userid, username, nvl(round(sysdate - withdrawalday),0) AS fromwithdrawalday
+		from   awesome_member 
+		where  status=0
+	</select>
+	
+	<delete id="delDBuser" parameterType="String">
+		delete from awesome_member 
+		where status=0 and userno=#{userno}
+	</delete>
+	
+	<resultMap type="HashMap" id="getgenderJSON">
+		<result property="gender" column="gender" javaType="String" />
+		<result property="CNT" 			   column="CNT" 		    javaType="String" />
+		<result property="PERCENTAGE" 	   column="PERCENTAGE" 	    javaType="String" />
+	</resultMap>
+	
+	<select id="genderJSON" resultMap="getgenderJSON" parameterType="String"> 
+		select   case when gender = 'M' then '남자' 
+        		 when gender = 'F' then '여자' 
+        		 else '알수없음' end AS gender,
+        count(*) AS CNT, 
+        round(count(*) / (select count(*) from awesome_member M, tbl_student S where m.userno = s.fk_userno and s.fk_class_seq = #{class_seq}) * 100,2) AS PERCENTAGE
+		from     awesome_member M, tbl_student S
+		where    m.userno = s.fk_userno and s.fk_class_seq = #{class_seq}
+		group by gender
+	</select>
+	<!-- 효민 끝-->
+	
+	
+	<!-- 회원목록 보기 -->
+	
+	
+	
+	
+    <select id="memberListWithPaging" resultType="com.center.member.model.MemberVO" parameterType="HashMap">
+       select userno, userid, username, email, hp1,hp2,hp3, addr1, addr2, registerday, status, withdrawalday
+       from 
+       (
+	       select rownum AS rno, userno, userid, username, email, hp1,hp2,hp3, addr1,addr2, registerday, status, withdrawalday
+	       from    
+	       (  
+	         select userno, userid, username, email
+                  , hp1, hp2, hp3
+                  , addr1, addr2
+                  , to_char(registerday, 'yyyy-mm-dd') AS registerday
+                  , status
+                  , to_char(withdrawalday, 'yyyy-mm-dd') AS withdrawalday
+			 from AWESOME_MEMBER
+             <if test='searchWord != ""'>
+             	where ${searchType} like '%'|| #{searchWord} ||'%'
+			 </if>
+			 order by userno desc
+		   ) V  
+	   ) T 	   
+	   where rno between #{startRno} and #{endRno}
+    </select>
+    
+     <!-- === 검색조건이 없을 경우 총 게시물 건수(totalCount) -->
+    <select id="getTotalCountWithNOsearch" resultType="int">
+    	select count(*)
+    	from AWESOME_MEMBER
+    </select>
+    
+    <!-- === 검색조건이 있을 경우 총 게시물 건수(totalCount) -->
+    <select id="getTotalCountWithSearch" parameterType="HashMap" resultType="int">
+    	select count(*)
+    	from AWESOME_MEMBER
+    	where ${searchType} like '%'|| #{searchWord} ||'%'
+    </select>
+    
+    <!--  관리자 회원 상세정보 보기  -->
+	<select id="getOneMemberDetail" parameterType="String" resultType="com.center.member.model.MemberVO">
+      select userid, username, rrn1, rrn2, post, addr1, addr2, hp1, hp2, hp3, marketing_sms, marketing_email, status, gender, email
+             ,to_char(registerday, 'yyyy-mm-dd') AS registerday
+             ,to_char(editday, 'yyyy-mm-dd') AS editday
+             ,to_char(lastloginday, 'yyyy-mm-dd') AS lastloginday
+      from AWESOME_MEMBER
+      where userno = #{userno}
+      
+   </select>
+   
+<!--     <resultMap type="HashMap" id="AdminClassDetail">
+		<result property="username"	    column="username"       javaType="String" />
+		<result property="class_title"	column="class_title"    javaType="String" />
+		<result property="price"	    column="price"          javaType="String" />
+		<result property="status"	    column="status"         javaType="String" />
+		<result property="deleteday"	column="deleteday"      javaType="String" />
+		<result property="orderlistno"	column="orderlistno"    javaType="String" />
+		<result property="userno_fk"	column="userno_fk"      javaType="String" />
+		
+	</resultMap> -->
+   
+   <!--  관리자 회원 수강정보 보기  -->
+	<select id="getOnememberclassDetail" parameterType="String" resultType="com.center.member.model.OrderListVO">
+        select V.username, C.class_title, price, 
+        	   to_char(payday,'yyyy-mm-dd') AS payday, V.status, 
+        	   to_char(V.deleteday,'yyyy-mm-dd') AS deleteday, 
+        	   V.orderlistno, V.userno_fk
+		from 
+		      (
+		      select username, no AS orderlistno, class_seq_fk, A.status, price, payday, deleteday, userno_fk
+		      from AWESOME_ORDERLIST A join AWESOME_MEMBER B
+		      on A.userno_fk = B.userno
+		      ) V
+		left join tbl_class C
+		on V.class_seq_fk = C.class_seq
+		where V.userno_fk = #{userno_fk}
+
+   </select>
+   
+   
+    <!-- 관리자 회원 탈퇴 -->
+    <update id="memberwithdrawal" parameterType="String">
+      update AWESOME_MEMBER set status = 0, withdrawalday = sysdate
+      where userno = #{userno}
+    </update>
+    
+    <!-- 관리자 수강 취소  -->
+    <update id="admindeleteClass" parameterType="String">
+      update AWESOME_ORDERLIST set status = 1
+     							 , deleteday = sysdate
+      where no = #{no}
+    </update>
+    
+    
+    <!-- 회원목록 보기 -->
+</mapper>

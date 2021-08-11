@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ====  mapper 기본설정 ==== -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="awesomeReview">
+	
+	<resultMap type="HashMap" id="finishMap">
+		<result property="no" column="no" javaType="String" /> 
+		<result property="class_seq" column="class_seq" javaType="String" />
+		<result property="class_title" column="class_title" javaType="String" />
+		<result property="teacher_name" column="teacher_name" javaType="String" />
+		<result property="class_semester" column="class_semester" javaType="String" />
+	</resultMap>
+	
+
+	<!-- // 수강한 강좌 정보 가져오기  -->
+	<select id="finishClass_title" resultMap="finishMap" parameterType="String">
+		select no, class_seq, class_title, class_semester, teacher_name
+		from awesome_orderlist O JOIN tbl_class C ON c.class_seq = o.class_seq_fk 
+								 JOIN tbl_teacher T ON C.fk_teacher_seq  = T.teacher_seq
+		where o.userno_fk = #{ userno } and o.status in ( 0, 3 ) and c.class_status = 2 and review = 0
+		order by no desc
+	</select>
+	
+	<!-- // 첨부파일이 없는 글쓰기  -->
+	<insert id="add" parameterType="HashMap">
+		insert into awesome_review(reviewNo, fk_userno, fk_class_seq, fk_orderno, subject, content, wDate, wStatus)
+		values (seq_awesome_review.nextval, #{userno}, #{class_seq}, #{ reviewLecNo }, #{ subject }, #{ content }, default, default)
+	</insert>
+	
+	<!-- // 첨부파일이 있는 글쓰기  -->
+	<insert id="add_withFile" parameterType="HashMap">
+		insert into awesome_review(reviewNo, fk_userno, fk_class_seq, fk_orderno, subject, content, imgfilename, orgfilename, wDate, wStatus)
+		values (seq_awesome_review.nextval, #{userno}, #{class_seq}, #{ reviewLecNo }, #{ subject }, #{ content }, #{ newFileName }, #{ fileName }, default, default)
+	</insert>
+	
+		
+	<!-- // 글쓰기를 성공하면 수강내역 업데이트  -->
+	<update id="myClassUpdate" parameterType="HashMap">
+		update awesome_orderlist set review = 1
+		where no = #{ reviewLecNo } and review = 0
+	</update>
+	
+	<!-- // 수강후기 리스트 조회 -->
+	<select id="reviewList" parameterType="HashMap" resultType="com.center.review.model.ReviewVO">
+		select RNO, reviewno, username, class_seq, class_semester, class_title
+			 , teacher_name, subject, content, imgfilename
+		     , wdate, readcount, commentCount
+		from
+		(
+		        select row_number() over(
+		        <if test="orderby != '조회순'">	
+		        	order by R.reviewno desc
+		        </if>
+		        <if test="orderby == '조회순'">	
+		        	order by R.readcount desc
+		        </if>	
+		        	) as RNO, reviewno, username, class_seq, class_semester, class_title
+		        	 , teacher_name, subject, content, imgfilename
+					 , to_char(wdate, 'yyyy-mm-dd') as wdate, readcount, commentCount
+				from awesome_review R JOIN awesome_orderlist O ON o.no = R.fk_orderno 
+				                      JOIN tbl_class C ON c.class_seq = o.class_seq_fk 
+				                      JOIN awesome_member M ON o.userno_fk = M.userno 
+				                      JOIN tbl_teacher T ON C.fk_teacher_seq = T.teacher_seq
+		        where wstatus = 1
+		        <if test="searchWord != ''">
+		      		and ${ searchType } like '%' || #{searchWord} ||'%'
+		      	</if>
+		)P
+		where RNO between #{ firstPage } and #{ lastPage }
+	</select>
+	
+	<!-- // pagination 처리 되어진 리뷰 갯수를 가져온다 -->
+	<select id="totalCount" parameterType="HashMap" resultType="int">
+		select count(*) as totalCount
+		from awesome_review R JOIN awesome_orderlist O ON o.no = R.fk_orderno 
+		                      JOIN tbl_class C ON c.class_seq = o.class_seq_fk 
+		                      JOIN awesome_member M ON o.userno_fk = M.userno 
+		                      JOIN tbl_teacher T ON C.fk_teacher_seq = T.teacher_seq
+        where wstatus = 1
+        <if test="searchWord != ''">
+      		and ${ searchType } like '%' || #{searchWord} ||'%'
+      	</if>
+	</select>
+	
+	<!-- // 글 상세보기 -->
+	<select id="reviewDetail" parameterType="String" resultType="com.center.review.model.ReviewVO">
+		select reviewno, userno, username, class_seq, class_semester, class_title, teacher_name, subject, content, imgfilename
+			 , to_char(wdate, 'yyyy-mm-dd') as wdate, readcount
+		from awesome_review R JOIN awesome_orderlist O ON o.no = R.fk_orderno 
+		                      JOIN tbl_class C ON c.class_seq = o.class_seq_fk 
+		                      JOIN awesome_member M ON o.userno_fk = M.userno 
+		                      JOIN tbl_teacher T ON C.fk_teacher_seq = T.teacher_seq
+        where reviewno = #{ reviewno } and wstatus = 1
+	</select>
+	
+	<!-- // 글 상세보기가 진행되면 조회수 1 증가 -->
+	<update id="updateReadCount" parameterType="String" >
+		update awesome_review set readcount = readcount + 1
+		where reviewno = #{ reviewno }
+	</update>
+	
+	<!-- // 글 수정하기 -->
+	<update id="editEnd"  parameterType="HashMap">
+		update awesome_review set subject = #{subject}, content = #{content}
+							<if test="newFileName != null || fileName" >
+								, imgfilename = #{newFileName}, orgfilename = #{fileName}
+							</if>
+								, wdate = sysdate 
+		where reviewno = #{reviewno}
+	</update>
+	 
+	<!-- // 글 삭제하기(실제로 삭제가 아닌 status 변경) -->
+	<update id="reviewDelete"  parameterType="HashMap">
+		update awesome_review set wstatus = 0
+		where reviewno = #{reviewno}
+	</update>
+	
+<!-- ///////////////////////////////////////////////// 대끌  ///////////////////////////////////////////////// -->
+	
+	<!-- // 댓글 작성 -->
+	<insert id="addCmt" parameterType="HashMap" >
+		<if test="fk_replyno == ''">
+			insert into awesome_reviewComm(replyno, fk_reviewno, fk_userno, name, replycontent, groupno, replyDate)
+			values(seq_awesome_reviewComm.nextval, #{fk_reviewno}, #{fk_userno}, #{name}, #{comment}, seq_awesome_reviewComm.nextval, default)
+		</if>
+		
+		<if test="fk_replyno != ''">
+			insert into awesome_reviewComm(replyno, fk_reviewno, fk_userno, name, replycontent, replyDate, groupno, depthno, fk_replyno)
+			values(seq_awesome_reviewComm.nextval, #{fk_reviewno}, #{fk_userno}, #{name}, #{comment}, default, #{groupno}, #{depthno}+1, #{fk_replyno})
+		</if>
+	</insert>
+	
+	<!-- // 댓글 작성하면 리뷰테이블 댓글 수 +1 (트랜잭션) -->
+	<update id="addCmtCount"  parameterType="HashMap">
+		update awesome_review set commentCount = commentCount + 1
+		where reviewno = #{fk_reviewno}
+	</update>
+
+	<!-- // 댓글 리스트 조회 맵 -->
+	<resultMap type="HashMap" id="CommentMap">
+		<result column="replyno" javaType="String" property="replyno"/>
+		<result column="fk_userno" javaType="String" property="fk_userno"/>
+		<result column="name" javaType="String" property="name"/>
+		<result column="replycontent" javaType="String" property="replycontent"/>
+		<result column="replyDate" javaType="String" property="replyDate"/>
+		<result column="groupno" javaType="String" property="groupno"/>
+		<result column="depthno" javaType="String" property="depthno"/>
+		<result column="fk_replyno" javaType="String" property="fk_replyno"/>
+		<result column="commstatus" javaType="String" property="commstatus"/>
+	</resultMap>
+	
+	<!-- // 댓글 리스트 조회 -->
+	<select id="selectCommentList" resultMap="CommentMap" parameterType="String" > 
+		select replyno, fk_userno
+			 , DECODE(fk_userno, 8, name, substr(name, 0,1) || '*' || substr(name, 3,1)) as name
+		     , replycontent, to_char(replyDate, 'yyyy-mm-dd') as replyDate
+		     , groupno, depthno, fk_replyno, commstatus
+		from awesome_reviewComm
+		where fk_reviewno = #{reviewno}
+		start with fk_replyno = 0
+		connect by prior replyno = fk_replyno
+		order siblings by groupno asc, depthno desc
+	</select>
+	
+	<!-- // 댓글 삭제 -->
+	<delete id="deleteCom" parameterType="String">
+		update awesome_reviewComm set commstatus = 0
+		where replyno = #{ replyno }
+	</delete>
+
+	<!-- // 댓글 삭제하면 리뷰테이블 댓글 수 -1 (트랜잭션) -->
+	<update id="subCmtCount"  parameterType="String">
+		update awesome_review set commentCount = commentCount - 1
+		where reviewno = #{reviewno}
+	</update>
+	
+	<!-- // 원글 삭제인지 대댓글 삭제인지 ㅎㅎ -->
+	<select id="countReply" parameterType="HashMap" resultType="int"> 
+		select count(*)
+		from awesome_reviewcomm
+		where (replyno = #{replyno} or groupno = #{groupno}) and commstatus = 1
+	</select>
+	
+	<!-- // 대댓글이 없어서 댓글 아예 삭제 -->
+	<delete id="realDeleteCom" parameterType="HashMap">
+		delete from awesome_reviewcomm
+		<if test="chk != ''">
+			where groupno = #{groupno}
+		</if>
+		<if test="chk == ''">
+			where replyno = #{replyno}
+		</if>
+	</delete>
+	
+	<!-- // status 가 0 으로 변경된 댓글 갯수 -->
+	<select id="countStReply" parameterType="HashMap" resultType="int"> 
+		select count(*)
+		from awesome_reviewcomm
+		where (replyno = #{replyno} or groupno = #{groupno}) and commstatus = 0
+	</select>
+	
+	<update id="classReviewUpdate" parameterType="com.center.review.model.ReviewVO">
+		update awesome_orderlist set review = 0
+		where userno_fk = #{userno} and class_seq_fk = #{ class_seq }
+	</update>
+	
+	
+</mapper>

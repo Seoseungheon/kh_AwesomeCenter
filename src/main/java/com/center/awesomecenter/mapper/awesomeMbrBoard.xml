@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="awesomeMbrBoard">
+
+   <select id="getTotalCountWithNOsearch" parameterType="String" resultType="int">
+    	select count(*)
+    	from awesome_qna
+    	where userno_fk = #{userno}
+    </select>
+
+	<select id="getQnAList" parameterType="HashMap" resultType="com.center.member.model.QnAVO">	        
+	   select rrno, rno, no, categoryno_fk, title, content, writeday, status
+       from 
+       (
+	       select row_number() over(order by rownum desc) as rrno, rownum AS rno, no, categoryno_fk, title, content, writeday, status
+	       	from    
+	       	(  
+	         	select no, categoryno_fk, title, content, to_char(writeday, 'yyyy-mm-dd') as writeday, status
+			 	from awesome_qna
+			 	where userno_fk = #{userno}
+			 	order by no desc
+		   	) V  
+	   	) T 	   
+	   	where rno between #{startRno} and #{endRno}
+	   	order by rrno desc
+	</select>
+
+	<select id="getQnAView" parameterType="String" resultType="com.center.member.model.QnAVO">
+		select no, userno_fk, categoryno_fk, title, content, writeday, status, answer
+		from awesome_qna
+		where no = #{no}
+	</select>
+	
+	<delete id="delQuestion" parameterType="String">
+		delete from awesome_qna where no = #{no}
+	</delete>
+	
+	<update id="editQuestion" parameterType="HashMap">
+		update awesome_qna set categoryno_fk = #{categoryno}, title = #{title}, content = #{content}, writeday = sysdate
+		where no = #{no}
+	</update>
+	
+	<insert id="writeQuestion" parameterType="HashMap">
+		insert into awesome_qna(no, userno_fk, categoryno_fk, title, content)
+		values(seq_qna.nextval, #{userno}, #{categoryno}, #{title}, #{content})
+	</insert>
+	
+	 <select id="getTotalCountWithNOsearchAdmin" parameterType="String" resultType="int">
+    	select count(*)
+    	from awesome_qna
+    </select>
+    
+    <select id="getQnAListAdmin" parameterType="HashMap" resultType="com.center.member.model.QnAVO">	        
+	   select rrno, rno, no, categoryno_fk, title, content, writeday, status
+       from 
+       (
+	       select row_number() over(order by rownum desc) as rrno, rownum AS rno, no, categoryno_fk, title, content, writeday, status
+	       	from    
+	       	(  
+				select no, categoryno_fk, title, content, to_char(writeday, 'yyyy-mm-dd') as writeday, status
+			 	from awesome_qna
+			 	order by status, no asc
+		   	) V  
+	   	) T 	   
+	   	where rno between #{startRno} and #{endRno}
+	   	order by rrno desc
+	</select>
+	
+	<update id="answerEdit" parameterType="HashMap">
+		update awesome_qna set answer = #{answer}, status=1
+		where no = #{no}
+	</update>
+	
+	<!-- 효민 수정  -->
+	<!-- 효민 수정  -->
+	<!-- 효민 수정  -->
+	
+	<select id="boardListWithPagingHM" resultType="com.center.member.model.HopeBoardVO" parameterType="HashMap">
+       select no, title, writeday, viewcount, M.username
+       from 
+       (
+	       select rownum AS rno, no, title, writeday, viewcount, userno_fk
+	       from    
+	       (  
+	         select no, title ,to_char(writeday, 'yyyy-mm-dd') AS writeday, viewcount, userno_fk
+			 from AWESOME_HOPELECTURE
+			 where status = 1
+			 order by no desc
+		   ) V  
+	   ) T, awesome_member M
+	   where rno between #{startRno} and #{endRno} and T.userno_fk = M.userno
+	   <if test='searchWord != "" '>
+             	and ${searchType} like '%'|| #{searchWord} ||'%'
+       </if>
+       order by no desc
+    </select>
+    
+    <!-- === #118. 검색조건이 없을 경우 총 게시물 건수(totalCount) -->
+    <select id="getTotalCountWithNOsearchHM" resultType="int">
+    	select count(*)
+    	from AWESOME_HOPELECTURE
+    	where status = 1
+    </select>
+    
+    <!-- === #121. 검색조건이 있을 경우 총 게시물 건수(totalCount) -->
+    <select id="getTotalCountWithSearchHM" parameterType="HashMap" resultType="int">
+    	select count(*)
+		from
+		(
+			select *
+			from   AWESOME_HOPELECTURE
+			where  status = 1
+		)T, awesome_member M
+		where T.userno_fk = M.userno and ${searchType} like '%'|| #{searchWord} ||'%'
+    </select>
+    
+	<insert id="writewishEnd" parameterType="HashMap">
+        insert into AWESOME_HOPELECTURE(no, userno_fk, title, content, writeday, viewcount)
+		values (SEQ_AWESOME_HOPELECTURE.nextval, #{userno}, #{title}, #{content}, sysdate, '0')
+	</insert>
+
+	<select id="getHopeBoardDetail" resultType="com.center.member.model.HopeBoardVO" parameterType="String">
+    	select title, writeday, viewcount, M.username, content, no
+	       from 
+	       (
+		       select rownum AS rno, no, title, writeday, viewcount, userno_fk, content
+		       from    
+		       (  
+		         select no, title ,to_char(writeday, 'yyyy-mm-dd') AS writeday, viewcount, userno_fk, content
+				 from AWESOME_HOPELECTURE
+				 where status = 1 and no=#{no}
+			   ) V  
+		   ) T, awesome_member M
+	   where T.userno_fk = M.userno
+    </select>
+
+	<update id="setAddCount" parameterType="String">
+		update AWESOME_HOPELECTURE 
+		set    viewcount = viewcount + 1 
+		where  status = 1 and no = #{no}  	
+	</update> 
+
+	<update id="delHopeBoard" parameterType="String">
+		update AWESOME_HOPELECTURE 
+		set    status = 0 
+		where  no = #{no}  	
+	</update> 
+	
+	<update id="updateWishEnd" parameterType="HashMap">
+		update AWESOME_HOPELECTURE 
+		set    title = #{title}, content = #{content}, writeday = sysdate 
+		where  no = #{no}
+	</update>
+	
+	<select id="getRecentlyWrite" parameterType="String" resultType="int">
+    	SELECT nvl(ROUND(
+		    (sysdate - (
+		                    select writeday
+		                    from
+		                    (
+		                        select writeday
+		                        from AWESOME_HOPELECTURE 
+		                        where status = 1 and userno_fk = #{userno}
+		                        order by no desc
+		                    )
+		                     where ROWNUM <![CDATA[<=]]> 1
+		     )
+		    )* 24 * 60),99999) AS recentlyWrite
+		FROM dual
+    </select>
+    
+    <!-- 효민 수정 끝 -->
+    <!-- 효민 수정 끝 -->
+    <!-- 효민 수정 끝 -->
+</mapper>

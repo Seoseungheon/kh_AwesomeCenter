@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ====  mapper 기본설정 ==== -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 루트 엘리먼트 & 네임스페이스 설정(프로젝트 전체 내에서 유일해야 한다.) -->
+<mapper namespace="awesomeAdminLecture">
+
+	<!-- 1. 강좌 리스트 -->
+	<select id="getLectureAdminList" resultType="com.center.lectureAdmin.model.LectureAdminVO" parameterType="HashMap">
+		select * 
+		from
+		   (
+	        select rownum as rno, class_seq, fk_cate_no, cate_code, cate_name, fk_teacher_seq, teacher_name, class_semester, class_title, class_startDate, class_endDate, class_status, class_place
+	        from
+		        (
+		            select C.class_seq, C.fk_cate_no, L.cate_code, L.cate_name, C.fk_teacher_seq, T.teacher_name, C.class_title, C.class_semester, C.class_place
+		                 , to_char(C.class_startDate,'yyyy.mm.dd') as class_startDate
+		                 , to_char(C.class_endDate,'yyyy.mm.dd') as class_endDate
+		                 , case C.class_status when '1' then '접수중' when '2' then '접수완료' when '0' then '대기접수' end as class_status
+		            from tbl_class C 
+                    JOIN tbl_teacher T on C.fk_teacher_seq = T.teacher_seq
+                    JOIN lec_category L on C.fk_cate_no = L.cate_no
+                    where 1=1
+                    <if test='cate_code != ""'>
+						<if test=' cate_code == "adult" '>
+							and L.cate_code = '성인'
+						</if>
+						<if test=' cate_code == "child" '>
+							and L.cate_code = '아동'
+						</if>
+					</if>
+		             <if test=' fk_cate_no != "" '>	 
+		  				 and C.fk_cate_no =  #{fk_cate_no}
+					</if>
+		            <if test='class_status != ""'>
+						and class_status = #{class_status}
+					</if>
+					 <if test=' class_title != "" '>	 
+		  				 and C.class_title like '%'||#{class_title}||'%'
+					</if>
+		            order by C.class_semester desc
+			     ) V
+		    ) T
+		 where rno between #{startRno} and #{endRno}
+	</select>
+
+	<!-- 2. 검색어가 없는 강좌 갯수 조회 -->
+	<select id="getTotalCountNoSearch" resultType="int">
+		select count(*) from tbl_class
+	</select>
+	
+	<!-- 3. 검색어가 있는 강좌 갯수 조회 -->
+	<select id="getTotalCountSearch" parameterType="HashMap" resultType="int">
+		select count(*) 		
+		from tbl_class C 
+        JOIN tbl_teacher T on C.fk_teacher_seq = T.teacher_seq
+        JOIN lec_category L on C.fk_cate_no = L.cate_no
+        where 1=1
+        
+        <if test='cate_code != ""'>
+			<if test=' cate_code == "adult" '>
+				and L.cate_code = '성인'
+			</if>
+			<if test=' cate_code == "child" '>
+				and L.cate_code = '아동'
+			</if>
+		</if>
+        <if test=' fk_cate_no != "" '>	 
+		 	and C.fk_cate_no =  #{fk_cate_no}
+		</if>
+        <if test='class_status != ""'>
+		  	and class_status = #{class_status}
+		</if>
+	 	<if test=' class_title != "" '>	 
+		 	 and C.class_title like '%'||#{class_title}||'%'
+		</if>		      
+	</select>
+	
+	<!-- 4. 강좌 상세 정보 -->
+	<select id="getLectureInfo" resultType="com.center.lectureAdmin.model.LectureAdminVO" parameterType="String">	
+		select C.class_seq, C.fk_cate_no, C.fk_teacher_seq, T.teacher_name, C.class_title, trim(C.class_semester) AS class_semester, C.class_fee, C.class_subFee, C.class_day, L.cate_no, L.cate_code, L.cate_name
+		     , C.class_personnel, C.class_time, C.class_photo, C.class_content, C.class_place, C.class_heart
+		     , to_char(C.class_startDate,'yyyy.mm.dd') as class_startDate
+		     , to_char(C.class_endDate,'yyyy.mm.dd') as class_endDate
+		     , case C.class_status when '1' then '접수중' when '2' then '접수완료' when '0' then '대기접수' end as class_status
+		from tbl_class C 
+        JOIN tbl_teacher T on C.fk_teacher_seq = T.teacher_seq
+        JOIN lec_category L on C.fk_cate_no = L.cate_no		
+		where C.class_seq = #{class_seq}
+	</select>
+	
+	<!-- 5. 강좌별 수강생 리스트 -->
+	<select id="getLectureStudentList" resultType="com.center.lectureAdmin.model.LectureStudentVO" parameterType="String">
+		select S.fk_userno, C.class_seq, S.fk_class_seq, S.studno
+		     , nvl(case M.gender when 'F' then '여자' when 'M' then '남자' end, '-') as gender
+		     , M.username, M.hp1, M.hp2, M.hp3, M.email
+		from tbl_student S
+		JOIN AWESOME_MEMBER M ON S.fk_USERNO = M.USERNO
+		JOIN TBL_CLASS C ON S.fk_class_seq = C.CLASS_SEQ
+		where C.class_seq= #{class_seq}
+		order by C.class_seq
+	</select>
+	
+	<!-- 6. 강좌 수강생 삭제 -->
+	<delete id="deleteStudentAdmin" parameterType="com.center.lectureAdmin.model.LectureStudentVO">
+		delete from tbl_student where fk_userno = #{fk_userno} and fk_class_seq = #{fk_class_seq}
+	</delete>
+	
+	<!-- 7. 강좌별 대기자 리스트 조회 -->
+	<select id="getWaitingtList" resultType="com.center.lectureAdmin.model.LectureWaitingVO" parameterType="String">			
+		select W.classno_fk, W.userno_fk, M.username
+		    , nvl(case M.gender when 'F' then '여자' when 'M' then '남자' end, '-') as gender
+		    , M.hp1, M.hp2, M.hp3
+		    , to_char(W.reciptday, 'yyyy.mm.dd hh:mi:ss') as reciptday
+		from waitinglist W
+		JOIN awesome_member M ON W.Userno_Fk = M.userno
+		JOIN tbl_class C ON W.classno_fk = C.class_seq
+		where W.classno_fk = #{classno_fk}
+	</select>
+	
+	<!-- 8. 강좌 등록 (첨부파일x) -->
+	<insert id="insertLectureNoFile" parameterType="com.center.lectureAdmin.model.LectureAdminVO">
+		insert into tbl_class (class_seq, fk_cate_no, fk_teacher_seq, class_title, class_semester, class_startDate, class_endDate, 
+       						   class_fee, class_subFee, class_day, class_place, class_personnel, class_time, class_content, class_status, class_heart)
+		values(seq_tbl_class.nextval,#{fk_cate_no}, #{fk_teacher_seq}, #{class_title}, #{class_semester}, #{class_startDate}, #{class_endDate}
+			, #{class_fee}, #{class_subFee}, #{class_day}, #{class_place}, #{class_personnel}, #{class_time}, #{class_content}, #{class_status}, default)    	
+	</insert>
+	
+	<!-- 9. 강좌 등록 (첨부파일o) -->
+	<insert id="insertLectureFile" parameterType="com.center.lectureAdmin.model.LectureAdminVO">		
+		insert into tbl_class (class_seq, fk_cate_no, fk_teacher_seq, class_title, class_semester, class_startDate, class_endDate, 
+       						   class_fee, class_subFee, class_day, class_place, class_personnel, class_time, class_content, class_photo, class_status, class_heart)
+		values(seq_tbl_class.nextval,#{fk_cate_no}, #{fk_teacher_seq}, #{class_title}, #{class_semester}, #{class_startDate}, #{class_endDate}
+			, #{class_fee}, #{class_subFee}, #{class_day}, #{class_place}, #{class_personnel}, #{class_time}, #{class_content},#{class_photo}, #{class_status}, default)  
+	</insert>
+	
+	
+	
+	<!-- 10. 강좌 정보 수정 (첨부파일 o) -->
+	<update id="editLecture" parameterType="com.center.lectureAdmin.model.LectureAdminVO">
+		update tbl_class
+		set fk_cate_no = #{fk_cate_no}, fk_teacher_seq = #{fk_teacher_seq}, class_title = #{class_title}, class_semester = #{class_semester},
+		    class_startDate = #{class_startDate}, class_endDate = #{class_endDate}, class_fee = #{class_fee}, class_subFee = #{class_subFee}, 
+		    class_day = #{class_day}, class_place = #{class_place}, class_personnel = #{class_personnel}, class_time = #{class_time},
+		    class_content = #{class_content}, class_photo = #{class_photo}, class_status = #{class_status}
+	    where class_seq = #{class_seq}         
+	</update>
+	
+	<!-- 11. 강좌 정보 수정  (첨부파일 x)-->
+	<update id="editLectureNoFile" parameterType="com.center.lectureAdmin.model.LectureAdminVO">
+		update tbl_class
+		set fk_cate_no = #{fk_cate_no}, fk_teacher_seq = #{fk_teacher_seq}, class_title = #{class_title}, class_semester = #{class_semester},
+		    class_startDate = #{class_startDate}, class_endDate = #{class_endDate}, class_fee = #{class_fee}, class_subFee = #{class_subFee}, 
+		    class_day = #{class_day}, class_place = #{class_place}, class_personnel = #{class_personnel}, class_time = #{class_time},
+		    class_content = #{class_content}, class_status = #{class_status}
+	    where class_seq = #{class_seq}         
+	</update>
+	
+	<!-- 강좌 삭제 -->
+	<delete id="deleteLecture" parameterType="String">
+		delete from tbl_class where class_seq = #{class_seq}
+	</delete>
+	
+	
+	
+	
+	
+	<!-- 이벤트 게시판 글 목록 -->
+	<select id="getEventList" resultType="com.center.lectureAdmin.model.EventBoardVO" parameterType="HashMap">		
+		select rno, event_seq, fk_userno, event_title, event_photo, event_content, event_date, event_view, event_status 
+		from 
+		(
+		    select rownum as rno  
+		         , event_seq, fk_userno, event_title, event_photo, event_content, event_view, event_status
+		         , to_char(event_date, 'yyyy.mm.dd') as event_date
+		    from tbl_eventBoard
+		    where event_status = 1		 
+		    <if test="searchWord != '' "> 
+		    	and ${searchType} like '%' || #{searchWord} || '%'
+		    </if>	    
+		    order by event_seq desc
+		) V
+		where rno between #{startRnoE} and #{endRnoE}
+	</select>
+	
+	<!-- 이벤트 게시글 갯수(검색어x) -->
+	<select id="getTotalCountBoard" resultType="int">
+		select count(*) from tbl_eventBoard where event_status = 1
+	</select>
+	
+	<!-- 이벤트 게시글 갯수(검색어o) -->
+	<select id="getTotalCountBoardSearch" resultType="int" parameterType="HashMap">
+		select count(*) from tbl_eventBoard where event_status = 1 	
+		and ${searchType} like '%' || #{searchWord} || '%'
+		
+	</select>
+	
+	<!-- 이벤트 글 상세 내용 조회 -->
+	<select id="getEventInfo" resultType="com.center.lectureAdmin.model.EventBoardVO" parameterType="String">
+		select previousseqE, previoussubjectE, 
+	       	   event_seq, fk_userno, event_title, event_photo, event_content, event_date, event_view, event_status, 
+	           nextseqE, nextsubjectE 
+		from 
+		(
+		    select lag(event_seq, 1) over(order by event_seq ) as previousseqE
+		         , lag(event_title, 1) over(order by event_seq ) as previoussubjectE
+		         , event_seq, fk_userno, event_title, event_photo, event_content, event_view, event_status
+		         , to_char(event_date, 'yyyy.mm.dd') as event_date
+		         , lead(event_seq, 1) over(order by event_seq ) as nextseqE
+		         , lead(event_title, 1) over(order by event_seq ) as nextsubjectE
+		    from tbl_eventBoard
+		    where event_status = 1
+		) V
+		where V.event_seq = #{event_seq}
+	</select>
+	
+	<!-- 이벤트 게시판 조회수 증가 -->
+	 <update id="setAddViewCount" parameterType="String">
+	      update tbl_eventBoard set event_view = event_view + 1
+	      where event_status = 1 and event_seq = #{event_seq}
+   </update>
+   
+   <!-- 이벤트 게시판 글 등록 (청부파일o)-->
+   <insert id="registerEventBoardFile" parameterType="com.center.lectureAdmin.model.EventBoardVO">
+   		insert into tbl_eventBoard (event_seq, fk_userno, event_title, event_content, event_photo, event_date, event_view, event_status)
+		values (seq_tbl_event.nextval, #{fk_userno}, #{event_title}, #{event_content}, #{event_photo}, default, default, default)
+   </insert>
+   
+    <!-- 이벤트 게시판 글 등록 (청부파일x)-->
+   <insert id="registerEventBoardNoFile" parameterType="com.center.lectureAdmin.model.EventBoardVO">
+   		insert into tbl_eventBoard (event_seq, fk_userno, event_title, event_content, event_date, event_view, event_status)
+		values (seq_tbl_event.nextval, #{fk_userno}, #{event_title}, #{event_content}, default, default, default)
+   </insert>
+   
+    <!-- 이벤트 게시판 글 수정 (청부파일o)-->
+   <update id="editEventBoardFile" parameterType="com.center.lectureAdmin.model.EventBoardVO">
+     	update tbl_eventBoard
+     	set event_title = #{event_title}, event_content = #{event_content}, event_photo = #{event_photo}  
+     	where event_seq = #{event_seq}
+   </update>
+   
+    <!-- 이벤트 게시판 글 수정 (청부파일x)-->
+   <update id="editEventBoardNoFile" parameterType="com.center.lectureAdmin.model.EventBoardVO">
+     	update tbl_eventBoard
+     	set event_title = #{event_title}, event_content = #{event_content}
+     	where event_seq = #{event_seq}
+   </update>
+   
+    <!-- 이벤트 게시판 글 삭제(상태 업데이트)-->
+   <update id="deleteEvent" parameterType="String">
+     	update tbl_eventBoard
+     	set event_status = 0
+     	where event_seq = #{event_seq}
+   </update>
+ 
+</mapper>

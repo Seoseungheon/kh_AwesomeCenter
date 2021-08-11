@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<!-- ====  mapper 기본설정 ==== -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 루트 엘리먼트 & 네임스페이스 설정(프로젝트 전체 내에서 유일해야 한다.) -->
+<mapper namespace="awesomeAdmin2">
+
+	<!-- 1. 강사 리스트 불러오기 -->
+	<select id="getTeacherList" parameterType="HashMap" resultType="com.center.teacherAdmin.model.TeacherAdminVO">
+	select *
+         from
+         (
+            select rownum as rno, teacher_seq, cate_no, cate_code, cate_name, teacher_gender, teacher_name, teacher_registerday, teacher_status
+            from
+            (
+	            select T.teacher_seq
+	               , C.cate_no
+		           , C.cate_code
+		           , C.cate_name
+		           , case T.teacher_gender when '1' then '남자' else '여자' end as teacher_gender
+		           , T.teacher_name
+		           , to_char(T.teacher_registerday, 'yyyy-mm-dd') as teacher_registerday
+		           , case T.teacher_status when '0' then '퇴사' when '1' then '재직' when '2' then '휴직' end as teacher_status
+		            from lec_category C JOIN tbl_teacher T
+		            on C.cate_no = T.fk_cate_no
+		            where 1=1 
+		           <if test='searchCode != ""'>
+						<if test=' searchCode == "adult" '>
+							and C.cate_code = '성인'
+						</if>
+						<if test=' searchCode == "child" '>
+							and C.cate_code = '아동'
+						</if>
+					</if>
+		             <if test=' searchName != "" '>	 
+		  				 and C.cate_no =  #{searchName}
+					</if>
+		            <if test='searchText != ""'>
+						and teacher_name like '%'||#{searchText}||'%'
+					</if>
+					 <if test=' searchStatus != "" '>	 
+		  				 and teacher_status =  #{searchStatus}
+					</if>
+		            order by teacher_seq desc  
+	             ) V
+	          ) T
+               
+           where rno between #{startRno} and #{endRno}
+
+	</select>
+	
+	<!-- 2. 검색어가 없는 리스트 갯수 -->
+	<select id="getTotalCountNoSearch" resultType="int">
+	   select count(*)
+       from tbl_teacher 
+	</select>
+	
+	<!-- 2-2. 검색어가 있는 리스트 갯수 -->
+	<select id="getTotalCountSearch" parameterType="HashMap" resultType="int">
+	select count(*)
+	from lec_category C JOIN tbl_teacher T
+	on C.cate_no = T.fk_cate_no
+	where 1=1
+	<if test='searchCode != ""'>
+		<if test=' searchCode == "adult" '>
+			and C.cate_code = '성인'
+		</if>
+		<if test=' searchCode == "child" '>
+			and C.cate_code = '아동'
+		</if>
+	</if>
+	<if test=' searchName != "" '>
+		and C.cate_no = #{searchName}
+	</if>
+	<if test='searchText != ""'>
+		and teacher_name like '%'||#{searchText}||'%'
+	</if>
+	 <if test=' searchStatus != "" '>	 
+		  				 and teacher_status =  #{searchStatus}
+					</if>
+	</select>
+	
+	<!-- 3. 강사 상세정보 조회하기 -->
+	<select id="getTeacherDetail" parameterType="String" resultType="com.center.teacherAdmin.model.TeacherAdminVO">
+		select T.teacher_seq, T.teacher_name, T.fk_cate_no
+			   , T.teacher_jubun   
+			   , T.teacher_postcode, T.teacher_addr1, T.teacher_addr2, T.teacher_phone1, T.teacher_phone2
+			   , T.teacher_email, T.teacher_photo, T.teacher_shcool, T.teacher_major, T.teacher_career1, T.teacher_career2
+			   , C.cate_code
+			   , C.cate_name
+			   , case T.teacher_gender when '1' then '남자' else '여자' end as teacher_gender
+			   , to_char(T.teacher_registerday, 'yyyy-mm-dd') as teacher_registerday
+			   , case T.teacher_status when '0' then '퇴사' when '1' then '재직' when '2' then '휴직' end as teacher_status
+			   , T.teacher_reason
+			   , T.teafileName, T.teaorgFilename, T.teafileSize
+		from lec_category C JOIN tbl_teacher T
+		on C.cate_no = T.fk_cate_no
+		where T.teacher_seq = #{teacher_seq}
+	</select>
+	
+	<!-- 4. 강사 정보 수정하기 (첨부 파일X)-->
+	<update id="editTeacherAdmin" parameterType="com.center.teacherAdmin.model.TeacherAdminVO">
+	   update tbl_teacher
+	   set teacher_postcode = #{teacher_postcode}, teacher_addr1 = #{teacher_addr1}, teacher_addr2 = #{teacher_addr2}, 
+	   	   teacher_phone1 = #{teacher_phone1}, teacher_phone2 = #{teacher_phone2}, teacher_email = #{teacher_email}, 
+	   	   teacher_shcool = #{teacher_shcool}, teacher_major = #{teacher_major},
+	   	   teacher_career1 = #{teacher_career1}, teacher_career2 = #{teacher_career2}, fk_cate_no = #{fk_cate_no}, 
+	   	   teacher_status = #{teacher_status}, teacher_reason = nvl(#{teacher_reason},'') 
+	   where teacher_seq = #{teacher_seq}          
+	</update>
+	
+	<!-- 4-1. 강사 정보 수정하기  (첨부 파일O)-->
+	<update id="editTeacherAdminFile" parameterType="com.center.teacherAdmin.model.TeacherAdminVO">
+	   update tbl_teacher
+	   set teacher_postcode = #{teacher_postcode}, teacher_addr1 = #{teacher_addr1}, teacher_addr2 = #{teacher_addr2}, 
+	   	   teacher_phone1 = #{teacher_phone1}, teacher_phone2 = #{teacher_phone2}, teacher_email = #{teacher_email}, 
+	   	   teacher_shcool = #{teacher_shcool}, teacher_major = #{teacher_major}, teafileName = #{teafileName}, teaorgFilename = #{teaorgFilename}, teafileSize = #{teafileSize},
+	   	   teacher_career1 = #{teacher_career1}, teacher_career2 = #{teacher_career2}, fk_cate_no = #{fk_cate_no}, 
+	   	   teacher_status = #{teacher_status}, teacher_reason = #{teacher_reason}
+	   where teacher_seq = #{teacher_seq}          
+	</update>
+	
+	<!-- 5. 강사 등록하기 (첨부파일 O)-->
+	<insert id="insertTeacher" parameterType="com.center.teacherAdmin.model.TeacherAdminVO">
+		insert into tbl_teacher (teacher_seq, fk_cate_no, teacher_name, teacher_gender, teacher_jubun, teacher_postcode, teacher_addr1, teacher_addr2, teacher_phone1
+                        		,teacher_phone2, teacher_email, teacher_shcool, teacher_major, teacher_career1
+                        		,teacher_career2, teafileName, teaorgFilename, teafileSize)
+		values(seq_tbl_teacher.nextval, #{fk_cate_no}, #{teacher_name}, #{teacher_gender}, #{teacher_jubun}, #{teacher_postcode}, #{teacher_addr1}, #{teacher_addr2}, #{teacher_phone1}  
+			  , #{teacher_phone2}, #{teacher_email}, #{teacher_shcool}, #{teacher_major},  #{teacher_career1}
+			  , #{teacher_career2}, #{teafileName}, #{teaorgFilename}, #{teafileSize})
+	</insert>
+	
+	<!-- 5-1. 강사 등록하기 (첨부파일 X)-->
+	 <insert id="insertTeacherNoFile" parameterType="com.center.teacherAdmin.model.TeacherAdminVO">
+		insert into tbl_teacher (teacher_seq, fk_cate_no, teacher_name, teacher_gender, teacher_jubun, teacher_postcode, teacher_addr1, teacher_addr2, teacher_phone1
+                        		,teacher_phone2, teacher_email, teacher_shcool, teacher_major, teacher_career1
+                        		,teacher_career2)
+		values(seq_tbl_teacher.nextval, #{fk_cate_no}, #{teacher_name}, #{teacher_gender}, #{teacher_jubun}, #{teacher_postcode}, #{teacher_addr1}, #{teacher_addr2}, #{teacher_phone1}  
+			  , #{teacher_phone2}, #{teacher_email}, #{teacher_shcool}, #{teacher_major},  #{teacher_career1}
+			  , #{teacher_career2})
+	</insert> 
+	
+	<!-- 6. 강사 사진 원본 파일명 가져오기  -->
+	<select id="getTeacherImage" parameterType="com.center.teacherAdmin.model.TeacherAdminVO" resultType="String"> 
+		select teafileName, teaorgFilename, teafileSize
+		from tbl_teacher
+		where teacher_seq = #{teacher_seq}        
+	</select>
+	
+</mapper>

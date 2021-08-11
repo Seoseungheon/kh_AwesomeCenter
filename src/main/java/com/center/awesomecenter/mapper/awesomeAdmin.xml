@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<!-- ====  mapper 기본설정 ==== -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 루트 엘리먼트 & 네임스페이스 설정(프로젝트 전체 내에서 유일해야 한다.) -->
+<mapper namespace="awesomeAdmin">
+
+	<select id="boardListWithPaging" resultType="com.center.admin.model.BoardVO" parameterType="HashMap">
+       <!-- 
+       select Not_seq, Not_title, Not_regDate
+       from 
+       (
+	       select rownum AS rno, Not_seq, Not_title, Not_regDate
+	       from    
+	       (  
+	         select Not_seq, Not_title ,to_char(Not_regDate, 'yyyy-mm-dd') AS Not_regDate
+			 from AdminNotice
+			 where Not_status = 1
+			 <if test='searchWord != "" '>
+             	and ${searchType} like '%'|| #{searchWord} ||'%'
+             </if>
+			 order by Not_seq desc
+		   ) V  
+	   ) T 	   
+	   where rno between #{startRno} and #{endRno} 
+	   -->
+	   
+		select SUNBUN, Not_seq, Not_title, Not_regDate
+		from 
+		(
+		   select rownum AS rno, SUNBUN, Not_seq, Not_title, Not_regDate
+		   from    
+		   (  
+		     select row_number() over(order by Not_seq asc) AS SUNBUN, Not_seq, Not_title ,to_char(Not_regDate, 'yyyy-mm-dd') AS Not_regDate
+		     from AdminNotice
+		     where Not_status = 1
+		     <if test='searchWord != "" '>
+             	and ${searchType} like '%'|| #{searchWord} ||'%'
+             </if>
+		     order by Not_seq desc
+		   ) V  
+		) T 	   
+		where rno between #{startRno} and #{endRno}
+	   
+    </select>
+    
+    <!-- === #118. 검색조건이 없을 경우 총 게시물 건수(totalCount) -->
+    <select id="getTotalCountWithNOsearch" resultType="int">
+    	select count(*)
+    	from AdminNotice
+    	where Not_status = 1
+    </select>
+    
+    <!-- === #121. 검색조건이 있을 경우 총 게시물 건수(totalCount) -->
+    <select id="getTotalCountWithSearch" parameterType="HashMap" resultType="int">
+    	select count(*)
+    	from AdminNotice
+    	where Not_status = 1
+    	and ${searchType} like '%'|| #{searchWord} ||'%'
+    </select>
+    
+	<!--  공지 상세글 보여주기  -->
+	<select id="getNoticeBoardDetail" parameterType="String" resultType="com.center.admin.model.BoardVO">
+       select nopreviousseq, noprevioussubject, 
+		       not_seq, not_title, not_content,
+		       nonextseq, nonextsubject 
+           
+      from 
+      (
+         select lag(not_seq, 1) over(order by not_seq desc) as nonextseq
+		         , lag(not_title, 1) over(order by not_seq desc) as nonextsubject
+		         , not_seq, not_title, not_content
+		         , lead(not_seq, 1) over(order by not_seq desc) as nopreviousseq
+		         , lead(not_title, 1) over(order by not_seq desc) as noprevioussubject
+          from AdminNotice
+          where Not_status = 1
+      ) V
+      where V.Not_seq = #{Not_seq}
+   </select>
+   
+   <!-- 공지게시판에 글 작성하기 -->
+   <insert id="addNotice" parameterType="com.center.admin.model.BoardVO"> 
+       insert into AdminNotice(Not_seq, fk_userid, Not_title, Not_content, Not_regDate, Not_status)
+  	   values(seq_AdminNotice_Not_seq.nextval, #{fk_userid}, #{not_title}, #{not_content}, sysdate, 1) 
+   </insert>
+   
+   <!-- 공지게시판 글 수정하기 -->
+    <update id="noticeEdit" parameterType="com.center.admin.model.BoardVO">
+      update AdminNotice set not_title = #{not_title}
+                    , not_content = #{not_content}
+                    , not_regdate = sysdate
+      where Not_seq = #{not_seq}
+    </update>
+    
+    <!-- 공지게시판 글 삭제하기 -->
+    <update id="noticedel" parameterType="com.center.admin.model.BoardVO">
+      update AdminNotice set not_status=0
+      where Not_seq = #{not_seq}
+    </update>
+    
+    <!-- 회원목록 보기 -->
+    <select id="memberListWithPaging" resultType="com.center.member.model.MemberVO" parameterType="HashMap">
+       select userno, userid, username, email, addr1, addr2, registerday, status, withdrawalday
+       from AWESOME_MEMBER
+    </select>
+    
+    <!-- 연도별 매출 조회 (2018년, 2019년 2020년) -->
+    <resultMap type="HashMap" id="sumListmap">			 <!-- 호환이 되어지게 전부 String -->
+		<result property="YEARSUM" 	   column="YEARSUM"  		  javaType="String"/>  
+		<result property="YEAR"		   column="YEAR" 			  javaType="String"/>
+	</resultMap>
+	<select id="sumListJSON" parameterType="String" resultMap="sumListmap">
+		select to_char(class_startDate, 'yyyy') AS YEAR,
+         sum(class_fee) AS YEARSUM
+		from tbl_class
+		where class_status = '2' 
+		group by to_char(class_startDate, 'yyyy')
+		order by YEAR asc
+	
+	</select>
+	
+	<resultMap type="HashMap" id="monthListmap">			 <!-- 호환이 되어지게 전부 String -->
+		<result property="MONTH"	   column="MONTH" 			  javaType="String"/>
+		<result property="MONTHSUM"	   column="MONTHSUM" 		  javaType="String"/>
+	</resultMap>
+	
+	<select id="detailMonthJSON" parameterType="String" resultMap="monthListmap">
+		select to_char(class_startDate, 'yyyy-mm') AS MONTH,
+         sum(class_fee) AS MONTHSUM
+		from tbl_class
+		where class_status = '2' and to_char(class_startDate, 'yyyy') = #{year}
+		group by to_char(class_startDate, 'yyyy-mm')
+		order by MONTH asc
+	
+	</select>
+	
+	
+	<!-- 이번년도 강좌별 총 매출  (2020년) -->
+    <resultMap type="HashMap" id="classListmap">			 <!-- 호환이 되어지게 전부 String -->
+		<result property="CATENAME" 	   column="CATENAME"  		  javaType="String"/>  
+		<result property="CATETOTAL"	   column="CATETOTAL" 		  javaType="String"/>
+	</resultMap>
+	<select id="classListJSON" parameterType="String" resultMap="classListmap">
+		select L.cate_name AS CATENAME , sum(class_fee) AS CATETOTAL
+		from tbl_class C join lec_category L
+		on C.fk_cate_no = L.cate_no
+		where class_status = 2 and to_char(class_startDate, 'yyyy') = 2020
+		group by cate_name
+	
+	</select>
+	
+	<resultMap type="HashMap" id="deatilclassList">			 <!-- 호환이 되어지게 전부 String -->
+		<result property="CLASSMONTH"	   column="CLASSMONTH" 			  javaType="String"/>
+		<result property="CLASSMONTHSUM"   column="CLASSMONTHSUM" 		  javaType="String"/>
+	</resultMap>
+	
+	<select id="detailClassJSON" parameterType="String" resultMap="deatilclassList">
+		select to_char(class_startDate, 'yyyy-mm') AS CLASSMONTH
+       ,sum(class_fee) AS CLASSMONTHSUM
+       ,L.cate_name
+		from tbl_class C join lec_category L
+		on C.fk_cate_no = L.cate_no
+		where class_status = '2' and to_char(class_startDate, 'yyyy') = 2020 and L.cate_name = #{catename}
+		group by to_char(class_startDate, 'yyyy-mm'), L.cate_name
+		order by CLASSMONTH asc
+	
+	</select>
+	
+	<!-- 카테고리별 강사수 -->
+    <resultMap type="HashMap" id="teacherListmap">			 <!-- 호환이 되어지게 전부 String -->
+		<result property="CATENAME" 	   column="CATENAME"  		  javaType="String"/>  
+		<result property="COUNT"	  	   column="COUNT" 			  javaType="String"/>
+	</resultMap>
+	<select id="teacherListJSON" parameterType="String" resultMap="teacherListmap">
+		select L.cate_name AS CATENAME, count(*) AS count 
+		from tbl_teacher T join lec_category L 
+		on T.fk_cate_no = L.cate_no
+		group by cate_name
+	</select>
+	
+	<resultMap type="HashMap" id="teachergenderList">			 <!-- 호환이 되어지게 전부 String -->
+		<result property="GENDER"	    column="GENDER" 			  javaType="String"/>
+		<result property="PERCENTAGE"   column="PERCENTAGE" 		  javaType="String"/>
+	</resultMap>
+	
+	<select id="teacherGenderJSON" parameterType="String" resultMap="teachergenderList">
+		select case substr(teacher_gender,1,1) when '1' then '남' else '여' end AS GENDER
+      ,round( count(*)/(select count(*) from tbl_teacher)*100, 2) AS PERCENTAGE 
+		from tbl_teacher T join lec_category L 
+		on T.fk_cate_no = L.cate_no
+		where L.cate_name = #{catename}
+		group by case substr(teacher_gender,1,1) when '1' then '남' else '여' end 
+	
+	</select>
+</mapper>
