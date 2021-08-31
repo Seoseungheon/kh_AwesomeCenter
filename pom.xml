@@ -12,15 +12,17 @@
 		<org.springframework-version>4.3.4.RELEASE</org.springframework-version>
 		<org.aspectj-version>1.6.10</org.aspectj-version>
 		<org.slf4j-version>1.6.6</org.slf4j-version>
-		
 		<!-- ===== Spring 프레임워크 버전 4.x 이상시  tiles 관련 추가하기 ===== -->
         <org.apache.tiles-version>3.0.5</org.apache.tiles-version>
+
+		<maven.compiler.source>8</maven.compiler.source>
+		<maven.compiler.target>8</maven.compiler.target>
 	</properties>
-	
-	<!-- ===  ojdbc.jar 를 받기 위한 리포지토리 주소 변경하기 === -->
-	<repositories> 
+
+	<repositories>
+		<!-- ===  ojdbc.jar 를 받기 위한 리포지토리 주소 변경하기 === -->
 		<repository>
-			<id>codelds</id>
+			<id>oracle</id>
             <url>https://code.lds.org/nexus/content/groups/main-repo</url>
 		</repository>
 		
@@ -29,9 +31,28 @@
 	        <id>geotools</id>
 	        <url>http://download.osgeo.org/webdav/geotools/</url>
 	    </repository>
+
 	</repositories>
 	
 	<dependencies>
+		<!-- 의존성 추가 -->
+		<dependency>
+			<groupId>org.apache.maven</groupId>
+			<artifactId>maven-plugin-api</artifactId>
+			<version>3.6.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.maven.plugin-tools</groupId>
+			<artifactId>maven-plugin-annotations</artifactId>
+			<version>3.6.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.maven</groupId>
+			<artifactId>maven-project</artifactId>
+			<version>2.2.1</version>
+		</dependency>
+
 		<!-- Spring -->
 		<dependency>
 			<groupId>org.springframework</groupId>
@@ -126,14 +147,13 @@
 			<artifactId>jstl</artifactId>
 			<version>1.2</version>
 		</dependency>
-	
-		<!-- Test -->
+
+		<!-- https://mvnrepository.com/artifact/junit/junit -->
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>4.7</version>
-			<scope>test</scope>
-		</dependency>        
+		</dependency>
 		
 		<!-- ===  myBatis 관련 jar 추가하기 === -->
 		<dependency>
@@ -153,13 +173,14 @@
     		<artifactId>mybatis-spring</artifactId>
     		<version>1.3.2</version>
 		</dependency>
-		
-		<dependency> 
-    		<groupId>com.oracle</groupId>
-	        <artifactId>ojdbc6</artifactId>
-	        <version>11.2.0.3</version>
+
+		<!-- https://mvnrepository.com/artifact/oracle/ojdbc6 -->
+		<dependency>
+			<groupId>oracle</groupId>
+			<artifactId>ojdbc6</artifactId>
+			<version>11.2.0.3</version>
 		</dependency>
-		
+
 		<dependency>
     		<groupId>commons-dbcp</groupId>
     		<artifactId>commons-dbcp</artifactId>
@@ -180,12 +201,13 @@
 			<version>${org.springframework-version}</version>
 		</dependency>
 
-		<!-- =====  JSON 관련 jar 추가하기 =====  --> 
+		<!-- =====  JSON 관련 jar 추가하기 =====  -->
+		<!-- https://mvnrepository.com/artifact/org.json/json -->
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
 			<version>20180813</version>
-		</dependency> 
+		</dependency>
 		
 		<!-- =====  JSON 관련 jar 추가하기 =====  -->
 		<!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind -->
@@ -209,7 +231,7 @@
 		    <artifactId>gson</artifactId>
 		    <version>2.8.5</version>
 		</dependency>
-		
+
 		<!-- ===== 파일업로드 및 다운로드 관련 jar 추가하기 commons-fileupload ===== -->
 		<!-- https://mvnrepository.com/artifact/commons-fileupload/commons-fileupload --> 
 		<dependency>
@@ -217,8 +239,14 @@
 			<artifactId>commons-fileupload</artifactId>
 			<version>1.3.3</version>
 		</dependency>
-		
-		
+
+		<!--https://mvnrepository.com/artifact/com.googlecode.json-simple/json-simple -->
+		<dependency>
+			<groupId>com.googlecode.json-simple</groupId>
+			<artifactId>json-simple</artifactId>
+			<version>1.1.1</version>
+		</dependency>
+
 		<!-- 아파치 POI(Apache POI)는 아파치 소프트웨어 재단에서 만든 라이브러리로서 마이크로소프트 오피스파일 포맷을 순수 자바 언어로서 읽고 쓰는 기능을 제공한다. 
 			  주로 워드, 엑셀, 파워포인트와 파일을 지원하며 최근의 오피스 포맷인 Office Open XML File Formats(OOXML, 즉 xml 기반의 *.docx, *.xlsx, *.pptx 등) 이나 아웃룩, 비지오, 퍼블리셔 등으로 지원 파일 포맷을 늘려가고 있다. 
 			 poi-ooxml은 excel 2007이후 버전이며 이때 schemas도 같이 porting을 해줘야 xlsx 파일을 읽어들인다. 
@@ -318,37 +346,52 @@
           <version>1.6.2</version>
       </dependency> 
 		
-		 <!-- ===== 네이버 스마트 에디터에서 사진첨부 관련하여 이미지의 크기를 구하기위한 라이브러리 ===== -->
-	    <dependency>
+		<!-- ===== 네이버 스마트 에디터에서 사진첨부 관련하여 이미지의 크기를 구하기위한 라이브러리 ===== -->
+<!--	    <dependency>
 	        <groupId>javax.media</groupId>
 	        <artifactId>jai_core</artifactId>
 	        <version>1.1.3</version>
-	    </dependency>
-	
-	    <dependency>
-	        <groupId>javax.media</groupId>
-	        <artifactId>jai_codec</artifactId>
-	        <version>1.1.3</version>
-	    </dependency>
-		
+	    </dependency>-->
+
+		<!-- https://mvnrepository.com/artifact/javax.media.jai/com.springsource.javax.media.jai.codec -->
+	<!--	<dependency>
+			<groupId>javax.media</groupId>
+			<artifactId>jai_codec</artifactId>
+			<version>1.1.3</version>
+		</dependency>-->
+		<!-- https://mvnrepository.com/artifact/javax.media/jai_codec -->
+
+		<!--		<dependency>
+                    <groupId>org.apache.xmlgraphics</groupId>
+                    <artifactId>fop</artifactId>
+                    <version>2.5</version>
+                    <exclusions>
+                        <exclusion>
+                            <groupId>javax.media</groupId>
+                            <artifactId>jai-core</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>com.sun.media</groupId>
+                            <artifactId>jai-codec</artifactId>
+                        </exclusion>
+                    </exclusions>
+                </dependency>
+                -->
 	</dependencies>
     <build>
         <plugins>
-            <plugin>
-                <artifactId>maven-eclipse-plugin</artifactId>
-                <version>2.9</version>
-                <configuration>
-                    <additionalProjectnatures>
-                        <projectnature>org.springframework.ide.eclipse.core.springnature</projectnature>
-                    </additionalProjectnatures>
-                    <additionalBuildcommands>
-                        <buildcommand>org.springframework.ide.eclipse.core.springbuilder</buildcommand>
-                    </additionalBuildcommands>
-                    <downloadSources>true</downloadSources>
-                    <downloadJavadocs>true</downloadJavadocs>
-                </configuration>
-            </plugin>
-            <plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-release-plugin</artifactId>
+				<version>2.5.3</version>
+				<configuration>
+					<goals>install</goals>
+					<checkModificationExcludes>
+						<checkModificationExclude>pom.xml</checkModificationExclude>
+					</checkModificationExcludes>
+				</configuration>
+			</plugin>
+<!--            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>2.5.1</version>
@@ -359,15 +402,7 @@
                     <showWarnings>true</showWarnings>
                     <showDeprecation>true</showDeprecation>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>1.2.1</version>
-                <configuration>
-                    <mainClass>org.test.int1.Main</mainClass>
-                </configuration>
-            </plugin>
+            </plugin>-->
         </plugins>
     </build>
 </project>

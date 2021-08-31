@@ -7,7 +7,7 @@
 <mapper namespace="awesomeMain">
 
 	<!-- 공지사항 목록 -->
-	<select id="getNoticeList" resultType="com.center.admin.model.BoardVO">
+<!--	<select id="getNoticeList" resultType="com.center.admin.model.BoardVO">
 		select not_seq, not_title, not_regdate 
 		from(
 			select not_seq, not_title, to_char(not_regdate,'yy-mm-dd') AS not_regdate 
@@ -16,6 +16,6 @@
 			order  by not_seq desc
 		)
 		where  ROWNUM <![CDATA[<=]]> 10
-	</select>
+	</select>-->
 
 </mapper>

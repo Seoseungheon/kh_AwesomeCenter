@@ -23,8 +23,8 @@ public class MainController {
 		HttpSession session = request.getSession();
 		session.removeAttribute("gobackURL");
 		
-		List<BoardVO> noticeList = service.getNoticeList();
-		request.setAttribute("noticeList", noticeList);
+	/*	List<BoardVO> noticeList = service.getNoticeList();
+		request.setAttribute("noticeList", noticeList);*/
 		return "main/main.tiles1";
 	}
 	
